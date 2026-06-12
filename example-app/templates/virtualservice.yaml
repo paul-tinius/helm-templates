@@ -1,0 +1,5 @@
+{{- if .Values.istio.enabled }}
+{{- if .Values.istio.virtualService.enabled }}
+{{- include "virtualservice.render" (dict "root" $ "virtualservice" .Values.istio.virtualService) }}
+{{- end }}
+{{- end }}

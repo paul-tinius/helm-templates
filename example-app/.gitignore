@@ -1,0 +1,23 @@
+# Output files
+*.yaml
+!values.yaml
+!Chart.yaml
+
+# Temporary files
+/tmp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Helm files
+charts/
+Chart.lock

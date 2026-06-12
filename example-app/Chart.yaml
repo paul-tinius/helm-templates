@@ -1,0 +1,11 @@
+apiVersion: v2
+name: example-app
+description: A production-ready example application demonstrating the Helm Templates library
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: helm-templates
+    repository: file://../
+    version: 0.0.1
