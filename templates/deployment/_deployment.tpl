@@ -52,6 +52,34 @@ Expected structure:
     affinity: {}                             # Optional: affinity rules
     labels: {}                               # Optional: additional labels
     annotations: {}                          # Optional: additional annotations
+
+Inputs:
+  - .Chart.Name: The chart name
+  - .Release.Name: The release name
+  - .Release.Namespace: The release namespace
+  - .Release.Service: The release service (typically Helm)
+  - deployment.name: Override for the deployment name (optional)
+  - deployment.replicas: Number of replicas (optional, defaults to 1)
+  - deployment.strategy: Deployment strategy configuration (optional)
+  - deployment.containers: List of container definitions (required)
+  - deployment.volumes: List of volume definitions (optional)
+  - deployment.volumeMounts: List of volume mount definitions (optional)
+  - deployment.nodeSelector: Node selector configuration (optional)
+  - deployment.tolerations: List of tolerations (optional)
+  - deployment.affinity: Affinity rules (optional)
+  - deployment.labels: Additional labels (optional)
+  - deployment.annotations: Additional annotations (optional)
+
+Outputs:
+  - deployment.render: Complete Deployment manifest
+  - deployment.getFullName: The fully qualified Deployment name
+  - deployment.getReplicas: The replica count
+  - deployment.labels: YAML formatted labels
+  - deployment.selectorLabels: YAML formatted selector labels
+  - deployment.podLabels: YAML formatted pod labels
+  - deployment.containers: YAML formatted container specifications
+  - deployment.env: YAML formatted environment variables
+  - deployment.validate: Validation helper (fails on invalid config)
 */}}
 
 {{/*
@@ -76,10 +104,11 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "deployment.labels" (dict "root" $root "deployment" $deployment) | nindent 4 }}
-  {{- with $deployment.annotations }}
   annotations:
+    {{- include "annotations" $root | nindent 4 }}
+    {{- with $deployment.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   replicas: {{ include "deployment.getReplicas" (dict "root" $root "deployment" $deployment) }}
   {{- with $deployment.strategy }}
@@ -95,10 +124,11 @@ spec:
     metadata:
       labels:
         {{- include "deployment.podLabels" (dict "root" $root "deployment" $deployment) | nindent 8 }}
-      {{- with $deployment.podAnnotations }}
       annotations:
+        {{- include "podAnnotations" $root | nindent 8 }}
+        {{- with $deployment.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
       {{- with $deployment.serviceAccountName }}
       serviceAccountName: {{ . | quote }}
@@ -140,11 +170,15 @@ Returns:
 {{- define "deployment.getFullName" -}}
 {{- $root := .root -}}
 {{- $deployment := .deployment -}}
-{{- $name := default $root.Chart.Name $deployment.name | include "name.truncateName" -}}
-{{- if contains $name $root.Release.Name -}}
-  {{- $root.Release.Name -}}
+{{- if $deployment.name -}}
+  {{- $name := $deployment.name -}}
+  {{- if contains $name $root.Release.Name -}}
+    {{- $root.Release.Name | include "name.truncateName" -}}
+  {{- else -}}
+    {{- printf "%s-%s" $root.Release.Name $name | include "name.truncateName" -}}
+  {{- end -}}
 {{- else -}}
-  {{- printf "%s-%s" $root.Release.Name $name | include "name.truncateName" -}}
+  {{- printf "%s-%s" $root.Release.Name $root.Chart.Name | include "name.truncateName" -}}
 {{- end -}}
 {{- end -}}
 
@@ -180,15 +214,25 @@ Returns:
 {{- define "deployment.labels" -}}
 {{- $root := .root -}}
 {{- $deployment := .deployment -}}
-helm.sh/chart: {{ include "names.chart" $root }}
-{{- include "deployment.selectorLabels" (dict "root" $root "deployment" $deployment) }}
-{{- if $root.Chart.AppVersion }}
-app.kubernetes.io/version: {{ $root.Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ $root.Release.Service }}
-{{- with $deployment.labels }}
-{{- toYaml . | nindent 0 }}
-{{- end }}
+{{- $labels := dict -}}
+{{- if $root.Values.global.labels -}}
+  {{- range $k, $v := $root.Values.global.labels -}}
+    {{- $labels = set $labels $k (tpl $v $root) -}}
+  {{- end -}}
+{{- end -}}
+{{- $labels = set $labels "helm.sh/chart" (include "names.chart" $root) -}}
+{{- $labels = set $labels "app.kubernetes.io/name" $root.Chart.Name -}}
+{{- $labels = set $labels "app.kubernetes.io/instance" $root.Release.Name -}}
+{{- if $root.Chart.AppVersion -}}
+  {{- $labels = set $labels "app.kubernetes.io/version" $root.Chart.AppVersion -}}
+{{- end -}}
+{{- $labels = set $labels "app.kubernetes.io/managed-by" $root.Release.Service -}}
+{{- with $deployment.labels -}}
+  {{- range $k, $v := . -}}
+    {{- $labels = set $labels $k $v -}}
+  {{- end -}}
+{{- end -}}
+{{- toYaml $labels | nindent 0 -}}
 {{- end -}}
 
 {{/*
@@ -204,8 +248,10 @@ Returns:
 {{- define "deployment.selectorLabels" -}}
 {{- $root := .root -}}
 {{- $deployment := .deployment -}}
-app.kubernetes.io/name: {{ default $root.Chart.Name $deployment.name | include "name.truncateName" | quote }}
-app.kubernetes.io/instance: {{ $root.Release.Name | quote }}
+{{- $labels := dict -}}
+{{- $labels = set $labels "app.kubernetes.io/name" $root.Chart.Name -}}
+{{- $labels = set $labels "app.kubernetes.io/instance" $root.Release.Name -}}
+{{- toYaml $labels | nindent 0 -}}
 {{- end -}}
 
 {{/*
@@ -221,10 +267,15 @@ Returns:
 {{- define "deployment.podLabels" -}}
 {{- $root := .root -}}
 {{- $deployment := .deployment -}}
-{{- include "deployment.selectorLabels" (dict "root" $root "deployment" $deployment) }}
-{{- with $deployment.podLabels }}
-{{- toYaml . | nindent 0 }}
-{{- end }}
+{{- $labels := dict -}}
+{{- $labels = set $labels "app.kubernetes.io/name" $root.Chart.Name -}}
+{{- $labels = set $labels "app.kubernetes.io/instance" $root.Release.Name -}}
+{{- with $deployment.podLabels -}}
+  {{- range $k, $v := . -}}
+    {{- $labels = set $labels $k $v -}}
+  {{- end -}}
+{{- end -}}
+{{- toYaml $labels | nindent 0 -}}
 {{- end -}}
 
 {{/*
@@ -317,7 +368,7 @@ Returns:
   valueFrom:
     {{- toYaml $env.valueFrom | nindent 4 }}
   {{- end }}
-{{- end -}}
+{{ end }}
 {{- end -}}
 
 {{/*

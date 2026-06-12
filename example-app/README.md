@@ -12,7 +12,10 @@ This example chart demonstrates how to use all features of the Helm Templates li
 - **Service** - Service exposure with LoadBalancer type
 - **ServiceAccount** - Service account with IAM role annotation
 - **Istio Resources** - DestinationRule, Gateway, and VirtualService for service mesh
+- **Ingress** - Ingress configuration with TLS and cert-manager
+- **Autoscaling** - Horizontal Pod Autoscaler configuration
 - **Notes** - Comprehensive deployment notes with troubleshooting commands
+- **Mattermost** - Integration with Mattermost for deployment notifications
 
 ## Installation
 
@@ -95,17 +98,131 @@ istio:
   enabled: true
   destinationRule:
     enabled: true
+    host: example-app.production.svc.cluster.local
     trafficPolicy:
       loadBalancer:
         simple: LEAST_CONN
+      connectionPool:
+        tcp:
+          maxConnections: 100
+        http:
+          http1MaxPendingRequests: 50
+          http2MaxRequests: 100
+      outlierDetection:
+        consecutiveErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+    subsets:
+      - name: v1
+        labels:
+          version: v1
+      - name: v2
+        labels:
+          version: v2
   gateway:
     enabled: true
     selector:
       istio: ingressgateway
+    servers:
+      - port:
+          number: 80
+          name: http
+          protocol: HTTP
+        hosts:
+          - app.example.com
+        tls:
+          httpsRedirect: true
+      - port:
+          number: 443
+          name: https
+          protocol: HTTPS
+        hosts:
+          - app.example.com
+        tls:
+          mode: SIMPLE
+          credentialName: app-example-tls
   virtualService:
     enabled: true
     hosts:
       - app.example.com
+    gateways:
+      - example-app-gateway
+    http:
+      - match:
+          - uri:
+              prefix: /
+        route:
+          - destination:
+              host: example-app
+              port:
+                number: 80
+              subset: v1
+            weight: 100
+        timeout: 30s
+        retries:
+          attempts: 3
+          perTryTimeout: 10s
+          retryOn: 5xx,gateway-error,connect-failure,refused-stream
+```
+
+### Ingress Configuration
+
+```yaml
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: app-example-tls
+      hosts:
+        - app.example.com
+```
+
+### Autoscaling Configuration
+
+```yaml
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+```
+
+### Notes Configuration
+
+```yaml
+notes:
+  enabled: true
+  includeCommon: true
+  includeResources: true
+  includeNetworking: true
+  includeIstio: true
+  includeMattermost: true
+  includeTroubleshooting: true
+  customNotes:
+    documentation: https://docs.example.com
+    slack_channel: "#platform-apps"
+    on_call: platform-oncall
+```
+
+### Mattermost Configuration
+
+```yaml
+mattermost:
+  enabled: false
+  webhookUrl: "https://mattermost.example.com/hooks/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  channel: "deployments"
+  username: "Helm"
+  iconUrl: "https://example.com/helm-icon.png"
 ```
 
 ## Testing
@@ -175,17 +292,34 @@ helm uninstall my-app --namespace production
 - Custom annotations
 
 ### 7. Istio Resources
-- DestinationRule with traffic policy and subsets
-- Gateway with HTTP and HTTPS servers
-- VirtualService with routing rules and retries
+- DestinationRule with traffic policy, connection pool, outlier detection, and subsets
+- Gateway with HTTP and HTTPS servers with TLS configuration
+- VirtualService with routing rules, retries, and timeout configuration
 
-### 8. Notes
+### 8. Ingress
+- Ingress with nginx controller
+- TLS configuration with cert-manager
+- SSL redirect
+- Custom annotations
+
+### 9. Autoscaling
+- Horizontal Pod Autoscaler (HPA) configuration
+- CPU and memory utilization targets
+- Min and max replica limits
+
+### 10. Notes
 - Comprehensive deployment metadata
 - Resource information
 - Networking details
 - Istio configuration summary
 - Troubleshooting commands
-- Custom notes
+- Custom notes with template rendering support
+
+### 11. Mattermost Integration
+- Webhook-based deployment notifications
+- Custom channel and username
+- Deployment notes included in notifications
+- Custom icon support
 
 ## Production Best Practices
 
@@ -193,12 +327,16 @@ This example demonstrates several production best practices:
 
 1. **Resource Management** - Proper CPU and memory limits/requests
 2. **High Availability** - Multiple replicas with pod anti-affinity
-3. **Security** - Security context, non-root user, read-only filesystem
+3. **Security** - Security context, non-root user, read-only filesystem, dropped capabilities
 4. **Monitoring** - Prometheus annotations for metrics scraping
-5. **Health Checks** - Liveness, readiness, and startup probes
-6. **Rolling Updates** - Configured deployment strategy
-7. **Service Mesh** - Istio configuration for traffic management
-8. **Documentation** - Comprehensive notes for troubleshooting
+5. **Health Checks** - Liveness, readiness, and startup probes with appropriate thresholds
+6. **Rolling Updates** - Configured deployment strategy with surge and unavailable limits
+7. **Service Mesh** - Istio configuration for traffic management, load balancing, and outlier detection
+8. **Documentation** - Comprehensive notes for troubleshooting and deployment metadata
+9. **Scalability** - Horizontal Pod Autoscaler for automatic scaling based on CPU/memory
+10. **Observability** - Mattermost integration for deployment notifications
+11. **Ingress Management** - TLS termination with cert-manager and SSL redirect
+12. **Traffic Management** - Istio subsets for canary deployments and traffic splitting
 
 ## Customization
 

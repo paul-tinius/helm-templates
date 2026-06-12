@@ -71,10 +71,11 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "gateway.labels" (dict "root" $root "gateway" $gateway) | nindent 4 }}
-  {{- with $gateway.annotations }}
   annotations:
+    {{- include "annotations" $root | nindent 4 }}
+    {{- with $gateway.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   selector:
     {{- toYaml $gateway.selector | nindent 4 }}
@@ -110,13 +111,16 @@ Returns:
 {{- define "gateway.getFullName" -}}
 {{- $root := .root -}}
 {{- $gateway := .gateway -}}
-{{- $name := default $root.Chart.Name $gateway.name -}}
-{{- if contains $name $root.Release.Name -}}
-  {{- $root.Release.Name -}}
+{{- if $gateway.name -}}
+  {{- $name := $gateway.name -}}
+  {{- if contains $name $root.Release.Name -}}
+    {{- $root.Release.Name | include "name.truncateName" -}}
+  {{- else -}}
+    {{- printf "%s-%s" $root.Release.Name $name | include "name.truncateName" -}}
+  {{- end -}}
 {{- else -}}
-  {{- printf "%s-%s" $root.Release.Name $name -}}
+  {{- printf "%s-%s" $root.Release.Name $root.Chart.Name | include "name.truncateName" -}}
 {{- end -}}
-{{- include "name.truncateName" . -}}
 {{- end -}}
 
 {{/*
@@ -132,11 +136,25 @@ Returns:
 {{- define "gateway.labels" -}}
 {{- $root := .root -}}
 {{- $gateway := .gateway -}}
-{{- include "labels.selectorLabels" $root }}
-app.kubernetes.io/managed-by: {{ $root.Release.Service | quote }}
-{{- with $gateway.labels }}
-{{- toYaml . | nindent 0 }}
-{{- end }}
+{{- $labels := dict -}}
+{{- if $root.Values.global.labels -}}
+  {{- range $k, $v := $root.Values.global.labels -}}
+    {{- $labels = set $labels $k (tpl $v $root) -}}
+  {{- end -}}
+{{- end -}}
+{{- $labels = set $labels "helm.sh/chart" (include "names.chart" $root) -}}
+{{- $labels = set $labels "app.kubernetes.io/name" $root.Chart.Name -}}
+{{- $labels = set $labels "app.kubernetes.io/instance" $root.Release.Name -}}
+{{- if $root.Chart.AppVersion -}}
+  {{- $labels = set $labels "app.kubernetes.io/version" $root.Chart.AppVersion -}}
+{{- end -}}
+{{- $labels = set $labels "app.kubernetes.io/managed-by" $root.Release.Service -}}
+{{- with $gateway.labels -}}
+  {{- range $k, $v := . -}}
+    {{- $labels = set $labels $k $v -}}
+  {{- end -}}
+{{- end -}}
+{{- toYaml $labels | nindent 0 -}}
 {{- end -}}
 
 {{/*
@@ -165,7 +183,7 @@ Returns:
   {{- with $server.default }}
   default: {{ . }}
   {{- end }}
-{{- end -}}
+{{ end }}
 {{- end -}}
 
 {{/*

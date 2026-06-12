@@ -1,1 +1,5 @@
-/helm-templates.iml
+*.iml
+.idea/
+*.tgz
+charts/
+Chart.lock

@@ -1,8 +1,3 @@
-# Output files
-*.yaml
-!values.yaml
-!Chart.yaml
-
 # Temporary files
 /tmp/
 *.tmp
@@ -19,5 +14,6 @@ Thumbs.db
 *~
 
 # Helm files
+*.tgz
 charts/
 Chart.lock

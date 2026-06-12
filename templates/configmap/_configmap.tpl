@@ -18,6 +18,24 @@ Expected structure:
         key: "config-file"
     labels: {}                           # Optional: additional labels
     annotations: {}                      # Optional: additional annotations
+
+Inputs:
+  - .Chart.Name: The chart name
+  - .Release.Name: The release name
+  - .Release.Namespace: The release namespace
+  - configmap.name: Override for the configmap name (optional)
+  - configmap.data: Map of literal data key-value pairs (supports template rendering)
+  - configmap.dataFrom: List of file-based data references
+  - configmap.labels: Additional labels (optional)
+  - configmap.annotations: Additional annotations (optional)
+
+Outputs:
+  - configmap.render: Complete ConfigMap manifest
+  - configmap.getName: The ConfigMap name
+  - configmap.getFullName: The fully qualified ConfigMap name
+  - configmap.labels: YAML formatted labels
+  - configmap.data: YAML formatted data section
+  - configmap.validate: Validation helper (fails on invalid config)
 */}}
 
 {{/*
@@ -43,10 +61,11 @@ metadata:
   namespace: {{ $root.Release.Namespace | quote }}
   labels:
     {{- include "configmap.labels" (dict "root" $root "config" $config) | nindent 4 }}
-  {{- with $config.annotations }}
   annotations:
+    {{- include "annotations" $root | nindent 4 }}
+    {{- with $config.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 data:
   {{- include "configmap.data" (dict "root" $root "config" $config) | nindent 2 }}
 {{- end -}}
@@ -79,11 +98,15 @@ Returns:
 {{- define "configmap.getFullName" -}}
 {{- $root := .root -}}
 {{- $config := .config -}}
-{{- $name := include "configmap.getName" (dict "root" $root "config" $config) -}}
-{{- if contains $name $root.Release.Name -}}
-  {{- $root.Release.Name -}}
+{{- if $config.name -}}
+  {{- $name := $config.name -}}
+  {{- if contains $name $root.Release.Name -}}
+    {{- $root.Release.Name | include "name.truncateName" -}}
+  {{- else -}}
+    {{- printf "%s-%s" $root.Release.Name $name | include "name.truncateName" -}}
+  {{- end -}}
 {{- else -}}
-  {{- printf "%s-%s" $root.Release.Name $name | include "name.truncateName" -}}
+  {{- include "names.fullName" $root -}}
 {{- end -}}
 {{- end -}}
 
@@ -100,12 +123,25 @@ Returns:
 {{- define "configmap.labels" -}}
 {{- $root := .root -}}
 {{- $config := .config -}}
-app.kubernetes.io/name: {{ include "configmap.getName" (dict "root" $root "config" $config) | quote }}
-app.kubernetes.io/instance: {{ $root.Release.Name | quote }}
-app.kubernetes.io/managed-by: {{ $root.Release.Service | quote }}
-{{- with $config.labels }}
-{{- toYaml . | nindent 0 }}
-{{- end }}
+{{- $labels := dict -}}
+{{- if $root.Values.global.labels -}}
+  {{- range $k, $v := $root.Values.global.labels -}}
+    {{- $labels = set $labels $k (tpl $v $root) -}}
+  {{- end -}}
+{{- end -}}
+{{- $labels = set $labels "helm.sh/chart" (include "names.chart" $root) -}}
+{{- $labels = set $labels "app.kubernetes.io/name" $root.Chart.Name -}}
+{{- $labels = set $labels "app.kubernetes.io/instance" $root.Release.Name -}}
+{{- if $root.Chart.AppVersion -}}
+  {{- $labels = set $labels "app.kubernetes.io/version" $root.Chart.AppVersion -}}
+{{- end -}}
+{{- $labels = set $labels "app.kubernetes.io/managed-by" $root.Release.Service -}}
+{{- with $config.labels -}}
+  {{- range $k, $v := . -}}
+    {{- $labels = set $labels $k $v -}}
+  {{- end -}}
+{{- end -}}
+{{- toYaml $labels | nindent 0 -}}
 {{- end -}}
 
 {{/*

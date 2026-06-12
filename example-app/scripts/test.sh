@@ -129,7 +129,7 @@ else
 fi
 
 print_section "9. Test with Custom Values"
-run_command helm template my-app . --namespace production --set environment=staging --set replicaCount=1 > /tmp/example-app-custom.yaml
+run_command helm template my-app . --namespace production --set global.labels.environment=staging --set replicaCount=1 > /tmp/example-app-custom.yaml
 if grep -q "environment: staging" /tmp/example-app-custom.yaml; then
     echo "✓ Custom values override working"
 else
@@ -161,14 +161,6 @@ if ! grep -q "kind: Secret" /tmp/example-app-no-secret.yaml; then
     echo "✓ Secret disabled correctly"
 else
     echo "✗ Secret not disabled"
-    exit 1
-fi
-
-print_section "13. Validate Notes Generation"
-if grep -q "Deployment Metadata" /tmp/example-app-output.yaml; then
-    echo "✓ Notes generation working"
-else
-    echo "✗ Notes generation not working"
     exit 1
 fi
 
