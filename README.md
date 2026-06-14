@@ -438,7 +438,9 @@ mattermost:
 - `name.getNameOverride` - Get appropriate nameOverride
 - `name.getFullNameOverride` - Get appropriate fullnameOverride
 
-### ConfigMap Library (`templates/configmap/_configmap.tpl`)
+### ConfigMap Library (`templates/configmap/`)
+
+#### Generic ConfigMap (`templates/configmap/_configmap.tpl`)
 
 - `configmap.render` - Complete ConfigMap manifest
 - `configmap.getName` - ConfigMap name
@@ -446,6 +448,22 @@ mattermost:
 - `configmap.labels` - ConfigMap labels
 - `configmap.data` - ConfigMap data section
 - `configmap.validate` - Validation helper
+
+#### Spring Boot Application ConfigMap (`templates/configmap/_application-k8s-yaml.tpl`)
+
+- `applicationK8s.render` - Complete ConfigMap manifest with Spring Boot application-k8s.yaml
+- `applicationK8s.getName` - ConfigMap name
+- `applicationK8s.getFullName` - Fully qualified ConfigMap name
+- `applicationK8s.labels` - ConfigMap labels
+- `applicationK8s.data` - ConfigMap data section with application-k8s.yaml content
+
+#### Oracle Database Properties ConfigMap (`templates/configmap/_dbprop-k8s-yaml.tpl`)
+
+- `dbProp.render` - Complete ConfigMap manifest with Oracle database properties
+- `dbProp.getName` - ConfigMap name
+- `dbProp.getFullName` - Fully qualified ConfigMap name
+- `dbProp.labels` - ConfigMap labels
+- `dbProp.data` - ConfigMap data section with database properties
 
 ### Deployment Library (`templates/deployment/_deployment.tpl`)
 
@@ -560,36 +578,57 @@ service:
 {{- include "service.render" (dict "root" $ "service" $Values.service) }}
 ```
 
-## Example Application
+## Example Applications
 
-A complete, production-ready example application demonstrating all features of this library is included in the `example-app/` directory. This example shows:
+Two complete, production-ready example applications demonstrating the features of this library are included:
+
+### 1. Example Application (`example-app/`)
+
+A comprehensive example demonstrating all features of the Helm Templates library, including:
 
 - All template helpers in use
 - Production-ready configuration
 - Best practices for resource management
-- Istio service mesh integration
+- Istio service mesh integration (DestinationRule, Gateway, VirtualService)
+- Ingress configuration with TLS and cert-manager
+- Horizontal Pod Autoscaler
+- Mattermost integration for deployment notifications
 - Comprehensive testing scripts
 
-### Quick Start with Example
+**Quick Start:**
 
 ```bash
-# Navigate to the example
 cd example-app
-
-# Update dependencies
 helm dependency update
-
-# Test the templates
 ./scripts/test.sh
-
-# Install (dry-run first)
 helm install my-app . --namespace production --dry-run --debug
-
-# Install for real
 ./scripts/install.sh
 ```
 
 See the [example-app README](example-app/README.md) for detailed documentation.
+
+### 2. Spring Boot Example Application (`springboot-example-app/`)
+
+A Spring Boot-specific example demonstrating the `application-k8s-yaml.tpl` template for generating Kubernetes ConfigMap with Spring Boot configuration files, including:
+
+- Automatic generation of ConfigMap with `application-k8s.yaml`
+- Database and cache configuration
+- Spring Actuator configuration for monitoring
+- Environment-specific configuration
+- Secret management for database credentials
+- Health checks with Spring Boot endpoints
+- Horizontal Pod Autoscaler
+
+**Quick Start:**
+
+```bash
+cd springboot-example-app
+helm dependency update
+helm template my-springboot-app . --namespace production
+helm install my-springboot-app . --namespace production --create-namespace
+```
+
+See the [springboot-example-app README](springboot-example-app/README.md) for detailed documentation.
 
 ## Contributing
 

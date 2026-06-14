@@ -1,0 +1,11 @@
+apiVersion: v2
+name: springboot-example-app
+description: A Spring Boot example application demonstrating the application-k8s.tpl template
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: helm-templates
+    repository: file://../
+    version: 0.0.4

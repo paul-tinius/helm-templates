@@ -1,0 +1,14 @@
+{{- if .Values.configmap.enabled }}
+{{- $configmapData := dict "root" $ "configmap" .Values.configmap -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "configmap.getName" $configmapData | quote }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "configmap.labels" $configmapData | nindent 4 }}
+  annotations:
+    {{- include "annotations" $ | nindent 4 }}
+data:
+{{- include "applicationK8s.data" (dict "root" $ "config" .Values.configmap) | nindent 2 }}
+{{- end }}

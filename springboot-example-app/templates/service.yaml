@@ -1,0 +1,1 @@
+{{- include "service.render" (dict "root" $ "service" (dict "type" .Values.service.type "ports" (list (dict "name" "http" "port" .Values.service.port "targetPort" .Values.service.targetPort "protocol" "TCP")) "annotations" .Values.service.annotations)) }}

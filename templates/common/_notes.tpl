@@ -106,14 +106,14 @@ mattermost:
     {{- if .Values.notes.includeTroubleshooting | default true -}}
 troubleshooting:
   commands:
-    getPods: kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }}
-    logs: kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }} --tail=100
-    describeDeployment: kubectl describe deployment -n {{ .Release.Namespace }} {{ include "names.fullName" . }}
-    describeService: kubectl describe service -n {{ .Release.Namespace }} {{ include "names.fullName" . }}
-    events: kubectl get events -n {{ .Release.Namespace }} --sort-by='.lastTimestamp'
-    portForward: kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "names.fullName" . }} 8080:{{ .Values.service.port | default "80" }}
-    execPod: kubectl exec -n {{ .Release.Namespace }} -it $(kubectl get pod -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }} -o jsonpath='{.items[0].metadata.name}') -- sh
-    healthCheck: kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }} -o jsonpath='{.items[*].status.phase}'
+    get pods: `kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }}`
+    logs: `kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }} --tail=100`
+    describe deployment: `kubectl describe deployment -n {{ .Release.Namespace }} {{ include "names.fullName" . }}`
+    describe service: `kubectl describe service -n {{ .Release.Namespace }} {{ include "names.fullName" . }}`
+    events: `kubectl get events -n {{ .Release.Namespace }} --sort-by='.lastTimestamp'`
+    port forward: `kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "names.fullName" . }} 8080:{{ .Values.service.port | default "80" }}`
+    exec pod: `kubectl exec -n {{ .Release.Namespace }} -it $(kubectl get pod -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }} -o jsonpath='{.items[0].metadata.name}') -- sh`
+    health check: `kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }} -o jsonpath='{.items[*].status.phase}'`
     {{- end -}}
   {{- end -}}
 {{- end -}}

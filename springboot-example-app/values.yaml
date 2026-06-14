@@ -1,5 +1,5 @@
-# Example Application Values
-# This demonstrates all features of the Helm Templates library
+# Spring Boot Example Application Values
+# This demonstrates the application-k8s.tpl template for Spring Boot applications
 
 # Global configuration
 global:
@@ -13,7 +13,7 @@ global:
   # Global annotations applied to all resources
   annotations:
     contact: platform-team@example.com
-    repository: https://github.com/example/app
+    repository: https://github.com/example/springboot-app
     version: "1.0.0"
 
 # Application configuration
@@ -21,9 +21,9 @@ environment: production
 replicaCount: 3
 
 image:
-  repository: nginx
+  repository: springboot-app
   pullPolicy: IfNotPresent
-  tag: "1.25"
+  tag: "1.0.0"
 
 # Service configuration
 service:
@@ -36,20 +36,8 @@ service:
 
 # Ingress configuration
 ingress:
-  enabled: true
-  className: nginx
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  hosts:
-    - host: app.example.com
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: app-example-tls
-      hosts:
-        - app.example.com
+  enabled: false
+  hosts: []
 
 # Resource limits and requests
 resources:
@@ -72,7 +60,7 @@ autoscaling:
 podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "metrics"
-  prometheus.io/path: /metrics
+  prometheus.io/path: /actuator/prometheus
 
 podSecurityContext:
   runAsNonRoot: true
@@ -90,33 +78,42 @@ securityContext:
 serviceAccount:
   create: true
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/example-app-role
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/springboot-app-role
 
-# ConfigMap configuration
+# ConfigMap configuration for application-k8s.tpl
+# This data structure is used by the application-k8s.tpl template
 configmap:
-  enabled: false
-  name: app-config
+  enabled:
+    datasource: true
+    redis: true
+    management: true
+    app: true
+    server: true
+  name: springboot-config
   data:
-    app.env: production
-    app.log_level: info
-    app.feature_flags.enabled: "true"
-    app.feature_flags.new_ui: "false"
-    database.host: postgres.example.com
-    database.port: "5432"
-    cache.host: redis.example.com
-    cache.port: "6379"
+    database:
+      host: postgres.example.com
+      port: 5432
+    cache:
+      host: redis.example.com
+      port: 6379
+    app:
+      env: production
+      log_level: info
+      feature_flags:
+        enabled: true
+        new_ui: false
   labels:
     component: config
 
 # Secret configuration
 secret:
   enabled: true
-  name: app-secret
+  name: springboot-secret
   type: Opaque
   stringData:
     database.username: app_user
     database.password: changeme
-    api.key: changeme
   labels:
     component: secret
 
@@ -140,39 +137,29 @@ deployment:
   revisionHistoryLimit: 10
   containers:
     - name: app
-      image: nginx:1.25
+      image: springboot-app:1.0.0
       imagePullPolicy: IfNotPresent
       ports:
         - name: http
           containerPort: 8080
           protocol: TCP
-        - name: metrics
-          containerPort: 9090
+        - name: management
+          containerPort: 8081
           protocol: TCP
       env:
         - name: ENVIRONMENT
           value: production
         - name: LOG_LEVEL
           value: info
-        - name: DATABASE_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: example-app-config
-              key: database.host
-        - name: DATABASE_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: example-app-config
-              key: database.port
         - name: DATABASE_USERNAME
           valueFrom:
             secretKeyRef:
-              name: example-app-secret
+              name: springboot-example-app-secret
               key: database.username
         - name: DATABASE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: example-app-secret
+              name: springboot-example-app-secret
               key: database.password
         - name: POD_NAME
           valueFrom:
@@ -191,8 +178,8 @@ deployment:
           memory: 512Mi
       livenessProbe:
         httpGet:
-          path: /health
-          port: http
+          path: /actuator/health
+          port: management
         initialDelaySeconds: 30
         periodSeconds: 10
         timeoutSeconds: 5
@@ -200,8 +187,8 @@ deployment:
         failureThreshold: 3
       readinessProbe:
         httpGet:
-          path: /ready
-          port: http
+          path: /actuator/health/readiness
+          port: management
         initialDelaySeconds: 10
         periodSeconds: 5
         timeoutSeconds: 3
@@ -209,8 +196,8 @@ deployment:
         failureThreshold: 3
       startupProbe:
         httpGet:
-          path: /health
-          port: http
+          path: /actuator/health
+          port: management
         initialDelaySeconds: 0
         periodSeconds: 5
         timeoutSeconds: 3
@@ -231,7 +218,7 @@ deployment:
   volumes:
     - name: config
       configMap:
-        name: example-app-config
+        name: springboot-example-app-config
     - name: tmp
       emptyDir: {}
   nodeSelector:
@@ -251,7 +238,7 @@ deployment:
                 - key: app.kubernetes.io/name
                   operator: In
                   values:
-                    - example-app
+                    - springboot-example-app
             topologyKey: kubernetes.io/hostname
 
 # Istio configuration
@@ -259,7 +246,7 @@ istio:
   enabled: true
   destinationRule:
     enabled: true
-    host: example-app.production.svc.cluster.local
+    host: springboot-example-app.production.svc.cluster.local
     trafficPolicy:
       loadBalancer:
         simple: LEAST_CONN
@@ -291,7 +278,7 @@ istio:
           name: http
           protocol: HTTP
         hosts:
-          - app.example.com
+          - springboot-app.example.com
         tls:
           httpsRedirect: true
       - port:
@@ -299,23 +286,23 @@ istio:
           name: https
           protocol: HTTPS
         hosts:
-          - app.example.com
+          - springboot-app.example.com
         tls:
           mode: SIMPLE
-          credentialName: app-example-tls
+          credentialName: springboot-app-example-tls
   virtualService:
     enabled: true
     hosts:
-      - app.example.com
+      - springboot-app.example.com
     gateways:
-      - example-app-gateway
+      - springboot-example-app-gateway
     http:
       - match:
           - uri:
               prefix: /
         route:
           - destination:
-              host: example-app
+              host: springboot-example-app
               port:
                 number: 80
               subset: v1
@@ -336,7 +323,7 @@ notes:
   includeMattermost: true
   includeTroubleshooting: true
   customNotes:
-    documentation: https://docs.example.com
+    documentation: https://docs.example.com/springboot
     slack_channel: "#platform-apps"
     on_call: platform-oncall
 
