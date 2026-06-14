@@ -1,0 +1,34 @@
+# Values for simple-configmap-example
+# This example demonstrates using the _configmap.tpl template
+# to create a ConfigMap with key-value pair data
+
+global:
+  labels: {}
+
+notes:
+  enabled: true
+  includeCommon: false
+  includeResources: false
+  includeNetworking: false
+  includeIstio: false
+  includeMattermost: false
+  includeTroubleshooting: false
+  includeCustom: false
+  includeDatabase: false
+  includeSecurity: false
+
+serviceAccount:
+  create: false
+
+configmap:
+  name: "app-settings"
+  data:
+    app.name: "my-application"
+    app.version: "1.0.0"
+    app.environment: "production"
+    server.port: "8080"
+    server.host: "0.0.0.0"
+    logging.level: "info"
+    database.url: "postgresql://localhost:5432/mydb"
+    cache.enabled: "true"
+    cache.ttl: "3600"

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: files-configmap-example
+description: Example Helm chart demonstrating the use of _files-configmap.tpl template
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: helm-templates
+    version: 0.0.4
+    repository: file://../

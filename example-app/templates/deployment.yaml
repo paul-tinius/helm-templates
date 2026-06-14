@@ -1,1 +1,0 @@
-{{- include "deployment.render" (dict "root" $ "deployment" .Values.deployment) }}
